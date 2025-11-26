@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using FileUploadAPI.Infrastructure.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FileUploadAPI.Api.Controllers
@@ -7,38 +8,47 @@ namespace FileUploadAPI.Api.Controllers
     [ApiController]
     public class FileUploadController : ControllerBase
     {
+        private readonly IFileStorageService _storageService;
         private readonly ILogger<FileUploadController> _logger;
-        public FileUploadController(ILogger<FileUploadController> logger)
+        public FileUploadController(IFileStorageService storageService, ILogger<FileUploadController> logger)
         {
+            _storageService = storageService;
             _logger = logger;
         }
 
         /// <summary>
         /// Handle file upload and store into filesystem.
         /// </summary>
-        [HttpPost("upload-to-filesystem")]
-        public async Task<IActionResult> UploadToFileSystem(IFormFile file)
+        [HttpPost("upload")]
+        public async Task<IActionResult> Upload(IFormFile file)
         {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
 
-            return Ok($"File '{file.FileName}' uploaded successfully.");
-        }
+            using var stream = file.OpenReadStream();
+            var fileId = await _storageService.SaveFileAsync(stream, file.FileName);
 
-        /// <summary>
-        /// Handle file upload and store into cloud storage.
-        /// </summary>
-        [HttpPost("upload-to-s3")]
-        public async Task<IActionResult> UploadToS3(IFormFile file)
-        {
-            return Ok($"File '{file.FileName}' uploaded successfully.");
+            return Ok(new { 
+                Message = "File uploaded successfully", 
+                FileId = fileId 
+            });
         }
 
         /// <summary>
         /// Handle file downloads .
         /// </summary>
         [HttpPost("download")]
-        public async Task<IActionResult> DownloadFileById(Guid fileId)
+        public async Task<IActionResult> Download(string fileName)
         {
-            return Ok($"File '{fileId}' downloaded successfully.");
+            try
+            {
+                var stream = await _storageService.GetFileAsync(fileName);
+                return File(stream, "application/octet-stream", fileName);
+            }
+            catch (FileNotFoundException)
+            {
+                return NotFound();
+            }
         }
 
     }
