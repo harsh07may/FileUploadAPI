@@ -9,5 +9,6 @@ namespace FileUploadAPI.Infrastructure.Options
         public const string SectionName = "Storage:AwsS3";
         public string BucketName { get; set; } = string.Empty;
         public string Region { get; set; } = string.Empty; // Optional if configured globally
+        public string? ServiceUrl { get; set; }
     }
 }
